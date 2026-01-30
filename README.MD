@@ -26,8 +26,30 @@ using ProxyHttpClient;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// 注册通用代理支持
-builder.Services.AddUniversalProxySupport();
+// 注册通用代理模块
+// builder.Services.AddProxyHttpClient();
+builder.Services.AddProxyHttpClient(client =>
+{
+    // 设置默认客户端
+    client.DefaultRequestHeaders.Add("User-Agent", "MyApp/1.0");
+    client.Timeout = TimeSpan.FromSeconds(20);
+});
+// 注册强类型客户端
+builder.Services.AddTypedHttpClient<AviationWeatherClient>(client =>
+{
+    client.BaseAddress = new Uri("https://aviationweather.gov/");
+    client.DefaultRequestHeaders.Add("User-Agent", "MyApp/1.0");
+    client.Timeout = TimeSpan.FromSeconds(20);
+});
+builder.Services.AddTypedHttpClient<MyIpClient>(client =>
+{
+    client.BaseAddress = new Uri("https://httpbin.org/");
+});
+// 注册命名客户端的业务配置
+builder.Services.AddNamedHttpClient("IpClient", client =>
+{
+    client.BaseAddress = new Uri("https://httpbin.org/");
+});
 
 var app = builder.Build();
 ```
@@ -62,8 +84,15 @@ public class MyService(ProxyHttpClientFactory proxyFactory)
 }
 ```
 
-> 内部使用 IPostConfigureOptions 来动态赋值代理信息（实现代码参考 `UniversalProxyPostConfigure.cs`）。
+其它使用示例
 
+```csharp
+var myIpClient = clientFactory.GetTypedClient<MyIpClient>(proxy);
+var myIp = await myIpClient.GetIpAsync(stoppingToken);
+
+var myIpClient2 = clientFactory.CreateClient("IpClient", proxy);
+var myIp2 = await myIpClient2.GetStringAsync("ip", stoppingToken);
+```
 
 ## 进阶配置：配合 Polly 使用
 

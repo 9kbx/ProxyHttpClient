@@ -20,7 +20,7 @@ internal class UniversalProxyPostConfigure : IPostConfigureOptions<HttpClientFac
     private static void ConfigureWebProxy(HttpMessageHandlerBuilder builder, string name, HttpClientFactoryOptions options)
     {
         // 从注册表中找回完整的配置信息
-        if (!ProxyConfigRegistry.Configs.TryGetValue(name, out var config)) return;
+        if (!ProxyConfigRegistry.ProxyConfigs.TryGetValue(name, out var config)) return;
 
         var webProxy = new WebProxy($"{config.Host}:{config.Port}")
         {
@@ -40,7 +40,6 @@ internal class UniversalProxyPostConfigure : IPostConfigureOptions<HttpClientFac
             // 性能优化：根据大批量场景调整
             PooledConnectionLifetime = TimeSpan.FromMinutes(2),
             ConnectTimeout = TimeSpan.FromSeconds(10),
-            // 重要：.NET 9 默认开启空闲连接扫描，有助于及时释放不用的代理连接
         };
     }
 }

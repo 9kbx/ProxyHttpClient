@@ -8,13 +8,13 @@ public class MyApp(ProxyHttpClientFactory clientFactory, MyDbContext dbContext)
     public async Task RunAsync()
     {
         // 1. 定义代理（可以是任何来源：数据库、API、配置文件）
-        var config = new ProxyConfig("socks5://111.222.123.123", 33321, "aaa", "bbb");
-        // var config = new ProxyConfig("111.222.123.123", 33321, "aaa", "bbb");
+        var config = new ProxyConfig("111.222.123.123", 33321, "aaa", "bbb");
 
-        await DefaultHttpClientTestAsync();     // 不使用代理
+        await MyAppClientTestAsync(config); // 强类型客户端测试
+        await DefaultHttpClientTestAsync(); // 不使用代理
         // await ProxyTestAsync(config);        // 代理测试
         // await Test1Async();                  // 批量代理测试
-        await PollyTestAsync(config);           // 重试策略测试
+        await PollyTestAsync(config); // 重试策略测试
     }
 
     private async Task Test1Async()
@@ -98,7 +98,25 @@ public class MyApp(ProxyHttpClientFactory clientFactory, MyDbContext dbContext)
         var rawText = await response.Content.ReadAsStringAsync(stoppingToken);
         Console.WriteLine(rawText);
     }
-    
+
+    private async Task MyAppClientTestAsync(ProxyConfig proxy, CancellationToken stoppingToken = default)
+    {
+        // 获取一个绑定了特定账号代理、且具备固定 BaseAddress 的强类型客户端
+        // var myIpClient = clientFactory.GetTypedClient<MyIpClient>(proxy);
+        // var myIp = await myIpClient.GetIpAsync(stoppingToken);
+        // Console.WriteLine($"myIp = {myIp}");
+
+        var myIpClient2 = clientFactory.CreateClient("IpClient", proxy);
+        // var myIp2 = await myIpClient2.GetStringAsync("ip", stoppingToken);
+        var response = await myIpClient2.GetAsync("ip", stoppingToken);
+        var myIp2 = await response.Content.ReadAsStringAsync(stoppingToken);
+        Console.WriteLine($"myIp2 = {myIp2}");
+
+        var weatherClient = clientFactory.GetTypedClient<AviationWeatherClient>(proxy);
+        var data = await weatherClient.GetMetarAsync("KMCI", stoppingToken);
+        Console.WriteLine($"Weather = {data}");
+    }
+
     private List<ProxyConfig> GetProxies()
     {
         var proxies = new List<ProxyConfig>();

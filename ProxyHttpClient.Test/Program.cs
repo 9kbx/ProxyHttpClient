@@ -5,9 +5,32 @@ using ProxyHttpClient.Test;
 
 var builder = Host.CreateApplicationBuilder(args);
 
-builder.Services.AddUniversalProxySupport();
+// 注册通用代理模块
+// builder.Services.AddProxyHttpClient();
+builder.Services.AddProxyHttpClient(client =>
+{
+    // 设置默认客户端
+    client.DefaultRequestHeaders.Add("User-Agent", "MyApp/1.0");
+    client.Timeout = TimeSpan.FromSeconds(20);
+});
+// 注册强类型客户端
+builder.Services.AddTypedHttpClient<AviationWeatherClient>(client =>
+{
+    client.BaseAddress = new Uri("https://aviationweather.gov/");
+    client.DefaultRequestHeaders.Add("User-Agent", "MyApp/1.0");
+    client.Timeout = TimeSpan.FromSeconds(20);
+});
+builder.Services.AddTypedHttpClient<MyIpClient>(client =>
+{
+    client.BaseAddress = new Uri("https://httpbin.org/");
+});
+// 注册命名客户端的业务配置
+builder.Services.AddNamedHttpClient("IpClient", client =>
+{
+    client.BaseAddress = new Uri("https://httpbin.org/");
+});
 
-builder.Services.AddScoped<MyDbContext>();
+builder.Services.AddScoped<MyDbContext>(); // 模拟db上下文
 builder.Services.AddSingleton<MyApp>();
 
 var app = builder.Build();
