@@ -7,7 +7,7 @@ public class ProxyHttpClientFactory(IHttpClientFactory httpClientFactory, IServi
     /// <summary>
     /// 获取强类型客户端：融合动态代理与业务配置
     /// </summary>
-    public T GetTypedClient<T>(ProxyConfig? config = null) where T : class
+    public T CreateClient<T>(ProxyConfig? config = null) where T : class
     {
         var client = CreateClient(config);
 

@@ -87,7 +87,7 @@ public class MyService(ProxyHttpClientFactory proxyFactory)
 其它使用示例
 
 ```csharp
-var myIpClient = clientFactory.GetTypedClient<MyIpClient>(proxy);
+var myIpClient = clientFactory.CreateClient<MyIpClient>(proxy);
 var myIp = await myIpClient.GetIpAsync(stoppingToken);
 
 var myIpClient2 = clientFactory.CreateClient("IpClient", proxy);

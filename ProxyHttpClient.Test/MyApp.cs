@@ -102,9 +102,9 @@ public class MyApp(ProxyHttpClientFactory clientFactory, MyDbContext dbContext)
     private async Task MyAppClientTestAsync(ProxyConfig proxy, CancellationToken stoppingToken = default)
     {
         // 获取一个绑定了特定账号代理、且具备固定 BaseAddress 的强类型客户端
-        // var myIpClient = clientFactory.GetTypedClient<MyIpClient>(proxy);
-        // var myIp = await myIpClient.GetIpAsync(stoppingToken);
-        // Console.WriteLine($"myIp = {myIp}");
+        var myIpClient = clientFactory.CreateClient<MyIpClient>(proxy);
+        var myIp = await myIpClient.GetIpAsync(stoppingToken);
+        Console.WriteLine($"myIp = {myIp}");
 
         var myIpClient2 = clientFactory.CreateClient("IpClient", proxy);
         // var myIp2 = await myIpClient2.GetStringAsync("ip", stoppingToken);
@@ -112,7 +112,7 @@ public class MyApp(ProxyHttpClientFactory clientFactory, MyDbContext dbContext)
         var myIp2 = await response.Content.ReadAsStringAsync(stoppingToken);
         Console.WriteLine($"myIp2 = {myIp2}");
 
-        var weatherClient = clientFactory.GetTypedClient<AviationWeatherClient>(proxy);
+        var weatherClient = clientFactory.CreateClient<AviationWeatherClient>(proxy);
         var data = await weatherClient.GetMetarAsync("KMCI", stoppingToken);
         Console.WriteLine($"Weather = {data}");
     }
