@@ -1,0 +1,22 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ProxyHttpClient", "ProxyHttpClient\ProxyHttpClient.csproj", "{6FD442B9-95E0-434C-BDBC-F2C0BD72BE2F}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ProxyHttpClient.Test", "ProxyHttpClient.Test\ProxyHttpClient.Test.csproj", "{B66D01F5-5EF3-416A-AED7-36431171415D}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{6FD442B9-95E0-434C-BDBC-F2C0BD72BE2F}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{6FD442B9-95E0-434C-BDBC-F2C0BD72BE2F}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{6FD442B9-95E0-434C-BDBC-F2C0BD72BE2F}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{6FD442B9-95E0-434C-BDBC-F2C0BD72BE2F}.Release|Any CPU.Build.0 = Release|Any CPU
+		{B66D01F5-5EF3-416A-AED7-36431171415D}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{B66D01F5-5EF3-416A-AED7-36431171415D}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{B66D01F5-5EF3-416A-AED7-36431171415D}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{B66D01F5-5EF3-416A-AED7-36431171415D}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+EndGlobal
