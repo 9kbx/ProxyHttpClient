@@ -86,7 +86,7 @@ await retryPolicy.ExecuteAsync(() => client.GetAsync("https://example.com"));
 
 ## 核心原理
 
-- 本库利用了 .NET 的 IHttpClientFactory 命名客户端特性。当你调用 CreateClient(config) 时：
+本库利用了 .NET 的 IHttpClientFactory 命名客户端特性。当你调用 CreateClient(config) 时：
 
 - 摘要计算：库会根据 ProxyConfig 生成唯一的 CacheKey。
 
