@@ -2,6 +2,6 @@ namespace ProxyHttpClient;
 
 internal static class Consts
 {
-    public const string DefaultClientName = "DefaultProxyHttpClient";
-    public const string ProxyCachePrefixKey = "proxy_http_client:";
+    public const string DefaultClientName = "Default";
+    public const string ProxyCachePrefixKey = "ProxyHttpClient:";
 }

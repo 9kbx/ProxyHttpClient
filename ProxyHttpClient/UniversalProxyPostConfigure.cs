@@ -6,45 +6,40 @@ namespace ProxyHttpClient;
 
 internal class UniversalProxyPostConfigure : IPostConfigureOptions<HttpClientFactoryOptions>
 {
-    public void PostConfigure(string? clientName, HttpClientFactoryOptions options)
+    public void PostConfigure(string? compositeKey, HttpClientFactoryOptions options)
     {
-        // 只处理由我们类库发起的请求
-        if (string.IsNullOrEmpty(clientName) || !clientName.StartsWith(Consts.ProxyCachePrefixKey)) return;
+        // 匹配前缀
+        if (string.IsNullOrEmpty(compositeKey) || !compositeKey.StartsWith(Consts.ProxyCachePrefixKey)) 
+            return;
 
-        options.HttpMessageHandlerBuilderActions.Add(builder => { ConfigureWebProxy(builder, clientName, options); });
-    }
-
-    private static void ConfigureWebProxy(HttpMessageHandlerBuilder builder, string clientName,
-        HttpClientFactoryOptions options)
-    {
-        // 配置 SocketsHttpHandler
-        var handler = new SocketsHttpHandler
+        options.HttpMessageHandlerBuilderActions.Add(builder =>
         {
-            PooledConnectionLifetime = TimeSpan.FromMinutes(2), // 性能优化：根据大批量场景调整
-            ConnectTimeout = TimeSpan.FromSeconds(10),
-        };
-
-        if (ProxyConfigRegistry.SocketsHttpHandlers.TryGetValue(clientName, out var configureHandler))
-            configureHandler?.Invoke(handler);
-        else if (ProxyConfigRegistry.SocketsHttpHandlers.TryGetValue(Consts.DefaultClientName,
-                     out var defaultConfigureHandler))
-            defaultConfigureHandler?.Invoke(handler);
-
-        // 配置代理
-        if (ProxyConfigRegistry.ProxyConfigs.TryGetValue(clientName, out var config))
-        {
-            var webProxy = new WebProxy($"{config.Host}:{config.Port}")
+            var handler = new SocketsHttpHandler
             {
-                BypassProxyOnLocal = true
+                PooledConnectionLifetime = TimeSpan.FromMinutes(2),
+                ConnectTimeout = TimeSpan.FromSeconds(10),
             };
 
-            if (!string.IsNullOrEmpty(config.UserName))
-                webProxy.Credentials = new NetworkCredential(config.UserName, config.Password);
+            // 1. 获取对应的业务配置名称 (e.g. MyIpClient)
+            if (ProxyConfigRegistry.HandlerMapping.TryGetValue(compositeKey, out var businessName))
+            {
+                if (ProxyConfigRegistry.SocketsHttpHandlers.TryGetValue(businessName, out var action))
+                    action?.Invoke(handler);
+            }
+            // 2. 如果没找到具体业务配置，尝试应用全局默认 Handler 配置
+            else if (ProxyConfigRegistry.SocketsHttpHandlers.TryGetValue(Consts.DefaultClientName, out var defaultAction))
+            {
+                defaultAction?.Invoke(handler);
+            }
 
-            handler.Proxy = webProxy;
-            handler.UseProxy = true;
-        }
+            // 3. 应用代理配置
+            if (ProxyConfigRegistry.ProxyConfigs.TryGetValue(compositeKey, out var config))
+            {
+                handler.Proxy = config.ToWebProxy();
+                handler.UseProxy = true;
+            }
 
-        builder.PrimaryHandler = handler;
+            builder.PrimaryHandler = handler;
+        });
     }
 }

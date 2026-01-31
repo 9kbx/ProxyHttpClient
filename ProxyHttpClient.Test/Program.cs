@@ -30,16 +30,7 @@ builder.Services.AddProxyHttpClient<AviationWeatherClient>(client =>
     client.DefaultRequestHeaders.Add("User-Agent", "MyApp/1.0");
     client.Timeout = TimeSpan.FromSeconds(20);
 });
-builder.Services.AddProxyHttpClient<MyIpClient>(client => { client.BaseAddress = new Uri("https://httpbin.org/"); },
-    handler =>
-    {
-        Console.WriteLine($"================ {DateTime.Now} ================== Configure MyIpClient SocketHttpHandler");
-        handler.SslOptions = new SslClientAuthenticationOptions
-        {
-            RemoteCertificateValidationCallback = (_, _, _, _) => true
-        };
-        handler.ConnectTimeout = TimeSpan.FromSeconds(1);
-    });
+builder.Services.AddProxyHttpClient<MyIpClient>(client => { client.BaseAddress = new Uri("https://httpbin.org/"); });
 // 注册命名客户端的业务配置
 builder.Services.AddProxyHttpClient("IpClient", client => { client.BaseAddress = new Uri("https://httpbin.org/"); });
 

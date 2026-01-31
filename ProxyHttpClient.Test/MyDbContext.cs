@@ -6,4 +6,9 @@ public class MyDbContext
     {
         await Task.CompletedTask;
     }
+    
+    public void Test()
+    {
+        Console.WriteLine("Hello MyDbContext");
+    }
 }

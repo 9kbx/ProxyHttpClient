@@ -18,4 +18,9 @@ internal static class ProxyConfigRegistry
     /// SocketsHttpHandler 的配置缓存 (如SSL, Timeouts, etc.)
     /// </summary>
     public static readonly ConcurrentDictionary<string, Action<SocketsHttpHandler>> SocketsHttpHandlers = new();
+    
+    /// <summary>
+    /// 用于将复合 Key 映射回业务名称
+    /// </summary>
+    public static readonly ConcurrentDictionary<string, string> HandlerMapping = new();
 }
