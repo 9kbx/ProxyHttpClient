@@ -10,18 +10,20 @@ public static class ProxyHttpClientExtensions
     /// 注册通用代理
     /// </summary>
     /// <param name="services"></param>
-    /// <param name="configure"></param>
+    /// <param name="clientAction"></param>
+    /// <param name="handlerAction"></param>
     /// <returns></returns>
     public static IServiceCollection AddProxyHttpClient(this IServiceCollection services,
-        Action<HttpClient>? configure = null)
+        Action<HttpClient>? clientAction = null,
+        Action<SocketsHttpHandler>? handlerAction = null)
     {
         services.AddHttpClient();
         services.AddSingleton<ProxyHttpClientFactory>();
         services.AddSingleton<IPostConfigureOptions<HttpClientFactoryOptions>, UniversalProxyPostConfigure>();
-        if (configure != null)
-        {
-            ProxyConfigRegistry.NamedClientConfigs[Consts.DefaultClientConfigName] = configure;
-        }
+
+        var clientName = Consts.DefaultClientName;
+        if (clientAction != null) ProxyConfigRegistry.NamedClientConfigs[clientName] = clientAction;
+        if (handlerAction != null) ProxyConfigRegistry.SocketsHttpHandlers[clientName] = handlerAction;
 
         return services;
     }
@@ -30,13 +32,17 @@ public static class ProxyHttpClientExtensions
     /// 注册强类型客户端的业务配置
     /// </summary>
     /// <param name="services"></param>
-    /// <param name="configure"></param>
+    /// <param name="clientAction"></param>
+    /// <param name="handlerAction"></param>
     /// <typeparam name="T"></typeparam>
     /// <returns></returns>
     public static IServiceCollection AddProxyHttpClient<T>(this IServiceCollection services,
-        Action<HttpClient> configure)
+        Action<HttpClient>? clientAction,
+        Action<SocketsHttpHandler>? handlerAction = null)
     {
-        ProxyConfigRegistry.TypedClientConfigs[typeof(T)] = configure;
+        var clientName = typeof(T).FullName ?? typeof(T).Name;
+        if (clientAction != null) ProxyConfigRegistry.NamedClientConfigs[clientName] = clientAction;
+        if (handlerAction != null) ProxyConfigRegistry.SocketsHttpHandlers[clientName] = handlerAction;
         return services;
     }
 
@@ -44,13 +50,17 @@ public static class ProxyHttpClientExtensions
     /// 注册命名客户端的业务配置
     /// </summary>
     /// <param name="services"></param>
-    /// <param name="name"></param>
-    /// <param name="configure"></param>
+    /// <param name="clientName"></param>
+    /// <param name="clientAction"></param>
+    /// <param name="handlerAction"></param>
     /// <returns></returns>
-    public static IServiceCollection AddProxyHttpClient(this IServiceCollection services, string name,
-        Action<HttpClient> configure)
+    public static IServiceCollection AddProxyHttpClient(this IServiceCollection services, 
+        string clientName,
+        Action<HttpClient>? clientAction,
+        Action<SocketsHttpHandler>? handlerAction = null)
     {
-        ProxyConfigRegistry.NamedClientConfigs[name] = configure;
+        if (clientAction != null) ProxyConfigRegistry.NamedClientConfigs[clientName] = clientAction;
+        if (handlerAction != null) ProxyConfigRegistry.SocketsHttpHandlers[clientName] = handlerAction;
         return services;
     }
 }
