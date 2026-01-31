@@ -35,18 +35,18 @@ builder.Services.AddProxyHttpClient(client =>
     client.Timeout = TimeSpan.FromSeconds(20);
 });
 // 注册强类型客户端
-builder.Services.AddTypedHttpClient<AviationWeatherClient>(client =>
+builder.Services.AddProxyHttpClient<AviationWeatherClient>(client =>
 {
     client.BaseAddress = new Uri("https://aviationweather.gov/");
     client.DefaultRequestHeaders.Add("User-Agent", "MyApp/1.0");
     client.Timeout = TimeSpan.FromSeconds(20);
 });
-builder.Services.AddTypedHttpClient<MyIpClient>(client =>
+builder.Services.AddProxyHttpClient<MyIpClient>(client =>
 {
     client.BaseAddress = new Uri("https://httpbin.org/");
 });
 // 注册命名客户端的业务配置
-builder.Services.AddNamedHttpClient("IpClient", client =>
+builder.Services.AddProxyHttpClient("IpClient", client =>
 {
     client.BaseAddress = new Uri("https://httpbin.org/");
 });

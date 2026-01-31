@@ -9,7 +9,7 @@ internal class UniversalProxyPostConfigure : IPostConfigureOptions<HttpClientFac
     public void PostConfigure(string? name, HttpClientFactoryOptions options)
     {
         // 只处理由我们类库发起的请求
-        if (string.IsNullOrEmpty(name) || !name.StartsWith("universal_proxy:")) return;
+        if (string.IsNullOrEmpty(name) || !name.StartsWith(Consts.ProxyCachePrefixKey)) return;
 
         options.HttpMessageHandlerBuilderActions.Add(builder =>
         {

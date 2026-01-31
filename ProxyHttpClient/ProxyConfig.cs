@@ -10,7 +10,7 @@ public record ProxyConfig(
 {
     // 生成唯一的 Key，用于缓存和连接池分区
     public string GetCacheKey() => 
-        $"universal_proxy:{Host}:{Port}:{UserName ?? "anon"}";
+        $"{Consts.ProxyCachePrefixKey}{Host}:{Port}:{UserName ?? "anon"}";
 
     public WebProxy ToWebProxy() => new($"{Host}:{Port}")
     {

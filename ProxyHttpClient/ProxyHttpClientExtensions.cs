@@ -33,7 +33,7 @@ public static class ProxyHttpClientExtensions
     /// <param name="configure"></param>
     /// <typeparam name="T"></typeparam>
     /// <returns></returns>
-    public static IServiceCollection AddTypedHttpClient<T>(this IServiceCollection services,
+    public static IServiceCollection AddProxyHttpClient<T>(this IServiceCollection services,
         Action<HttpClient> configure)
     {
         ProxyConfigRegistry.TypedClientConfigs[typeof(T)] = configure;
@@ -47,7 +47,7 @@ public static class ProxyHttpClientExtensions
     /// <param name="name"></param>
     /// <param name="configure"></param>
     /// <returns></returns>
-    public static IServiceCollection AddNamedHttpClient(this IServiceCollection services, string name,
+    public static IServiceCollection AddProxyHttpClient(this IServiceCollection services, string name,
         Action<HttpClient> configure)
     {
         ProxyConfigRegistry.NamedClientConfigs[name] = configure;
