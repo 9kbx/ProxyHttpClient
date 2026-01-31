@@ -24,40 +24,20 @@ ProxyHttpClient 是一个专为 .NET 8+ 设计的高性能、轻量级动态代�
 ```csharp
 using ProxyHttpClient;
 
-var builder = WebApplication.CreateBuilder(args);
-
-// 注册通用代理模块
+// 注册通用代理客户端模块
 // builder.Services.AddProxyHttpClient();
 builder.Services.AddProxyHttpClient(client =>
 {
-    // 设置默认客户端
+    // 客户端默认设置
     client.DefaultRequestHeaders.Add("User-Agent", "MyApp/1.0");
     client.Timeout = TimeSpan.FromSeconds(20);
 });
-// 注册强类型客户端
-builder.Services.AddProxyHttpClient<AviationWeatherClient>(client =>
-{
-    client.BaseAddress = new Uri("https://aviationweather.gov/");
-    client.DefaultRequestHeaders.Add("User-Agent", "MyApp/1.0");
-    client.Timeout = TimeSpan.FromSeconds(20);
-});
-builder.Services.AddProxyHttpClient<MyIpClient>(client =>
-{
-    client.BaseAddress = new Uri("https://httpbin.org/");
-});
-// 注册命名客户端的业务配置
-builder.Services.AddProxyHttpClient("IpClient", client =>
-{
-    client.BaseAddress = new Uri("https://httpbin.org/");
-});
-
-var app = builder.Build();
 ```
 
 2. 定义代理配置
 
 ```csharp
-var config = new ProxyConfig(
+var proxy = new ProxyConfig(
     Host: "138.186.139.137", 
     Port: 36505, 
     UserName: "your_user", 
@@ -69,15 +49,12 @@ var config = new ProxyConfig(
 3. 在业务中使用
 
 ```csharp
-public class MyService(ProxyHttpClientFactory proxyFactory)
+public class MyService(ProxyHttpClientFactory clientFactory)
 {
     public async Task FetchData()
     {
-        // 1. 获取绑定了特定代理的 HttpClient
-        // 如果代理配置相同，内部会自动复用高性能连接池
-        var client = proxyFactory.CreateClient(config);
-
-        // 2. 发起请求
+        // 指定代理
+        var client = clientFactory.CreateClient(proxy);
         var result = await client.GetStringAsync("https://api.ipify.org");
         Console.WriteLine($"当前出口 IP: {result}");
     }
@@ -86,12 +63,70 @@ public class MyService(ProxyHttpClientFactory proxyFactory)
 
 其它使用示例
 
-```csharp
-var myIpClient = clientFactory.CreateClient<MyIpClient>(proxy);
-var myIp = await myIpClient.GetIpAsync(stoppingToken);
+- 默认客户端
 
-var myIpClient2 = clientFactory.CreateClient("IpClient", proxy);
-var myIp2 = await myIpClient2.GetStringAsync("ip", stoppingToken);
+```csharp
+builder.Services.AddProxyHttpClient(client =>
+{
+    // 客户端默认设置
+    client.DefaultRequestHeaders.Add("User-Agent", "MyApp/1.0");
+    client.Timeout = TimeSpan.FromSeconds(20);
+});
+
+// 指定代理
+var client = proxyHttpClientFactory.CreateClient(proxy);
+// 或者不指定代理
+var client = proxyHttpClientFactory.CreateClient();
+```
+
+- 强类型客户端
+
+```csharp
+public class MyIpClient(HttpClient httpClient)
+{
+    public Task<string> GetIpAsync(CancellationToken stoppingToken) =>
+        httpClient.GetStringAsync("ip", stoppingToken);
+}
+
+builder.Services.AddProxyHttpClient<MyIpClient>(client =>
+{
+    client.BaseAddress = new Uri("https://httpbin.org/");
+});
+
+var client = proxyHttpClientFactory.CreateClient<MyIpClient>(proxy);
+var myIp = await client.GetIpAsync(stoppingToken);
+```
+
+- 命名客户端
+
+```csharp
+// 注册命名客户端的业务配置
+builder.Services.AddProxyHttpClient("IpClient", client =>
+{
+    client.BaseAddress = new Uri("https://httpbin.org/");
+});
+
+var client = proxyHttpClientFactory.CreateClient("IpClient", proxy);
+var myIp = await client.GetStringAsync("ip", stoppingToken);
+```
+
+- 客户端默认配置
+
+```csharp
+builder.Services.AddProxyHttpClient(client =>
+    {
+        client.DefaultRequestHeaders.Add("User-Agent", "MyApp/1.0");
+        client.Timeout = TimeSpan.FromSeconds(20);
+    },
+    primaryHandler =>
+    {
+        primaryHandler.SslOptions = new SslClientAuthenticationOptions
+        {
+            RemoteCertificateValidationCallback = (_, _, _, _) => true // 忽略SSL证书错误
+        };
+        primaryHandler.Proxy = new WebProxy("socks5://127.0.0.1:12312",true); // 指定默认代理（可选）
+        primaryHandler.ConnectTimeout = TimeSpan.FromSeconds(10);
+    });
 ```
 
 ## 进阶配置：配合 Polly 使用
