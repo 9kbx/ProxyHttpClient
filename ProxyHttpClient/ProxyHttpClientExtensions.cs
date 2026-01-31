@@ -11,11 +11,11 @@ public static class ProxyHttpClientExtensions
     /// </summary>
     /// <param name="services"></param>
     /// <param name="clientAction">全局默认 HttpClient 配置</param>
-    /// <param name="handlerAction">全局默认 Handler 配置</param>
+    /// <param name="primaryHandlerAction">全局默认 Handler 配置</param>
     /// <returns></returns>
     public static IServiceCollection AddProxyHttpClient(this IServiceCollection services,
         Action<HttpClient>? clientAction = null,
-        Action<SocketsHttpHandler>? handlerAction = null)
+        Action<SocketsHttpHandler>? primaryHandlerAction = null)
     {
         services.AddHttpClient();
         services.AddSingleton<ProxyHttpClientFactory>();
@@ -23,7 +23,7 @@ public static class ProxyHttpClientExtensions
 
         var clientName = Consts.DefaultClientName;
         if (clientAction != null) ProxyConfigRegistry.NamedClientConfigs[clientName] = clientAction;
-        if (handlerAction != null) ProxyConfigRegistry.SocketsHttpHandlers[clientName] = handlerAction;
+        if (primaryHandlerAction != null) ProxyConfigRegistry.SocketsHttpHandlers[clientName] = primaryHandlerAction;
 
         return services;
     }
@@ -33,16 +33,16 @@ public static class ProxyHttpClientExtensions
     /// </summary>
     /// <param name="services"></param>
     /// <param name="clientAction">强类型 HttpClient 配置</param>
-    /// <param name="handlerAction">强类型 Handler 配置</param>
+    /// <param name="primaryHandlerAction">强类型 Handler 配置</param>
     /// <typeparam name="T"></typeparam>
     /// <returns></returns>
     public static IServiceCollection AddProxyHttpClient<T>(this IServiceCollection services,
         Action<HttpClient>? clientAction,
-        Action<SocketsHttpHandler>? handlerAction = null)
+        Action<SocketsHttpHandler>? primaryHandlerAction = null)
     {
         var clientName = typeof(T).FullName ?? typeof(T).Name;
         if (clientAction != null) ProxyConfigRegistry.NamedClientConfigs[clientName] = clientAction;
-        if (handlerAction != null) ProxyConfigRegistry.SocketsHttpHandlers[clientName] = handlerAction;
+        if (primaryHandlerAction != null) ProxyConfigRegistry.SocketsHttpHandlers[clientName] = primaryHandlerAction;
         return services;
     }
 
@@ -52,15 +52,15 @@ public static class ProxyHttpClientExtensions
     /// <param name="services"></param>
     /// <param name="clientName"></param>
     /// <param name="clientAction">clientName HttpClient 配置</param>
-    /// <param name="handlerAction">clientName Handler 配置</param>
+    /// <param name="primaryHandlerAction">clientName Handler 配置</param>
     /// <returns></returns>
-    public static IServiceCollection AddProxyHttpClient(this IServiceCollection services, 
+    public static IServiceCollection AddProxyHttpClient(this IServiceCollection services,
         string clientName,
         Action<HttpClient>? clientAction,
-        Action<SocketsHttpHandler>? handlerAction = null)
+        Action<SocketsHttpHandler>? primaryHandlerAction = null)
     {
         if (clientAction != null) ProxyConfigRegistry.NamedClientConfigs[clientName] = clientAction;
-        if (handlerAction != null) ProxyConfigRegistry.SocketsHttpHandlers[clientName] = handlerAction;
+        if (primaryHandlerAction != null) ProxyConfigRegistry.SocketsHttpHandlers[clientName] = primaryHandlerAction;
         return services;
     }
 }

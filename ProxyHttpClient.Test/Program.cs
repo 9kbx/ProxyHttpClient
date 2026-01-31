@@ -1,4 +1,5 @@
-﻿using System.Net.Security;
+﻿using System.Net;
+using System.Net.Security;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using ProxyHttpClient;
@@ -14,14 +15,14 @@ builder.Services.AddProxyHttpClient(client =>
         client.DefaultRequestHeaders.Add("User-Agent", "MyApp/1.0");
         client.Timeout = TimeSpan.FromSeconds(20);
     },
-    handler =>
+    primaryHandler =>
     {
         Console.WriteLine($"================ {DateTime.Now} ================== Configure Default SocketHttpHandler");
-        handler.SslOptions = new SslClientAuthenticationOptions
+        primaryHandler.SslOptions = new SslClientAuthenticationOptions
         {
             RemoteCertificateValidationCallback = (_, _, _, _) => true
         };
-        handler.ConnectTimeout = TimeSpan.FromSeconds(10);
+        primaryHandler.ConnectTimeout = TimeSpan.FromSeconds(10);
     });
 // 注册强类型客户端
 builder.Services.AddProxyHttpClient<AviationWeatherClient>(client =>
