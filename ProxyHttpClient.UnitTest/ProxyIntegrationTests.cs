@@ -11,12 +11,17 @@ public class ProxyIntegrationTests
     {
         var services = new ServiceCollection();
 
+        services.AddTransient<MockProxyHttpMessageHandler>();
+        
         // 1. 注册我们的代理组件
-        services.AddProxyHttpClient(client => { client.DefaultRequestHeaders.Add("User-Agent", "XUnit-ProxyHttpClient.UnitTest"); });
+        services.AddProxyHttpClient(client =>
+                client.DefaultRequestHeaders.Add("User-Agent", "XUnit-ProxyHttpClient.UnitTest"))
+            .AddHttpMessageHandler<MockProxyHttpMessageHandler>();
 
         // 2. 注册一个专门的命名客户端用于隔离测试
         services.AddProxyHttpClient("IsolationClient",
-            client => { client.BaseAddress = new Uri("https://api.ipify.org"); });
+                client => { client.BaseAddress = new Uri("https://api.ipify.org/"); })
+            .AddHttpMessageHandler<MockProxyHttpMessageHandler>();
 
         _serviceProvider = services.BuildServiceProvider();
         _factory = _serviceProvider.GetRequiredService<ProxyHttpClientFactory>();
@@ -31,11 +36,11 @@ public class ProxyIntegrationTests
         // 准备一个测试代理
         var proxy = new ProxyConfig("123.123.123.123", 12312, "aaaa", "bbbb");
 
-        // var client = _factory.CreateClient(proxy);
-        // var ip = await client.GetStringAsync("https://api.ipify.org");
-        //
-        // Assert.NotNull(ip);
-        // Assert.Equal("123.123.123.123", ip); // 验证返回的出口IP是否为代理IP
+        var client = _factory.CreateClient(proxy);
+        var ip = await client.GetStringAsync("https://api.mock-test.com/");
+
+        Assert.NotNull(ip);
+        Assert.Equal("123.123.123.123", ip); // 验证返回的出口IP是否为代理IP
     }
 
     /// <summary>
@@ -47,15 +52,15 @@ public class ProxyIntegrationTests
         var proxy1 = new ProxyConfig("123.123.123.123", 12312, "aaaa", "bbbb");
         var proxy2 = new ProxyConfig("213.123.123.123", 12312, "aaaa", "bbbb");
 
-        // var client1 = _factory.CreateClient(proxy1);
-        // var client2 = _factory.CreateClient(proxy2);
-        //
-        // var ip1 = await client1.GetStringAsync("https://api.ipify.org");
-        // var ip2 = await client2.GetStringAsync("https://api.ipify.org");
-        //
-        // Assert.NotEqual(ip1, ip2);
-        // Assert.Equal("123.123.123.123", ip1);
-        // Assert.Equal("213.123.123.123", ip2);
+        var client1 = _factory.CreateClient(proxy1);
+        var client2 = _factory.CreateClient(proxy2);
+
+        var ip1 = await client1.GetStringAsync("https://api.ipify.org/");
+        var ip2 = await client2.GetStringAsync("https://api.ipify.org/");
+
+        Assert.NotEqual(ip1, ip2);
+        Assert.Equal("123.123.123.123", ip1);
+        Assert.Equal("213.123.123.123", ip2);
     }
 
     /// <summary>
@@ -69,21 +74,21 @@ public class ProxyIntegrationTests
         var proxyA = new ProxyConfig("123.123.123.123", 12312, "aaaa", "bbbb");
         var proxyB = new ProxyConfig("213.123.123.123", 12312, "aaaa", "bbbb");
 
-        // // 同一个 clientName，传入不同的 proxy
-        // var clientA = _factory.CreateClient(clientName, proxyA);
-        // var clientB = _factory.CreateClient(clientName, proxyB);
-        // var clientDirect = _factory.CreateClient(clientName, null); // 不带代理的直连模式
-        //
-        // var ipA = await clientA.GetStringAsync(""); // 使用 BaseAddress
-        // var ipB = await clientB.GetStringAsync("");
-        //
-        // // 获取本地真实 IP（非代理）
-        // var ipDirect = await clientDirect.GetStringAsync("");
-        //
-        // // 验证：虽然都叫 IsolationClient，但由于代理不同，底层 Handler 必须是隔离的
-        // Assert.Equal("123.123.123.123", ipA);
-        // Assert.Equal("213.123.123.123", ipB);
-        // Assert.NotEqual(ipA, ipDirect);
-        // Assert.NotEqual(ipB, ipDirect);
+        // 同一个 clientName，传入不同的 proxy
+        var clientA = _factory.CreateClient(clientName, proxyA);
+        var clientB = _factory.CreateClient(clientName, proxyB);
+        var clientDirect = _factory.CreateClient(clientName, null); // 不带代理的直连模式
+
+        var ipA = await clientA.GetStringAsync(""); // 使用 BaseAddress
+        var ipB = await clientB.GetStringAsync("");
+
+        // 获取本地真实 IP（非代理）
+        var ipDirect = await clientDirect.GetStringAsync("");
+
+        // 验证：虽然都叫 IsolationClient，但由于代理不同，底层 Handler 必须是隔离的
+        Assert.Equal("123.123.123.123", ipA);
+        Assert.Equal("213.123.123.123", ipB);
+        Assert.NotEqual(ipA, ipDirect);
+        Assert.NotEqual(ipB, ipDirect);
     }
 }

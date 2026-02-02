@@ -9,15 +9,15 @@ public class DefaultSample(ProxyHttpClientFactory clientFactory, MyDbContext dbC
     {
         var proxy = new ProxyConfig("111.222.123.123", 33321, "aaa", "bbb");
 
-        await MyAppClientTestAsync();       // 强类型客户端测试
+        await MyAppClientTestAsync(); // 强类型客户端测试
         await DefaultHttpClientTestAsync(); // 不使用代理
-        await ProxyTestAsync(proxy);        // 代理测试
-        await BatchTestAsync();             // 批量代理测试
+        await ProxyTestAsync(proxy); // 代理测试
+        await BatchTestAsync(); // 批量代理测试
     }
 
     private async Task BatchTestAsync()
     {
-        var proxies = GetProxies();
+        var proxies = Helper.GetProxies();
         await Parallel.ForEachAsync(proxies, new ParallelOptions()
         {
             MaxDegreeOfParallelism = 10
@@ -45,22 +45,22 @@ public class DefaultSample(ProxyHttpClientFactory clientFactory, MyDbContext dbC
         var proxy = new ProxyConfig("socks5://111.123.123.52", 12312, "aaaa", "bbbb");
         var proxy2 = new ProxyConfig("222.123.123.115", 12312, "aaaa", "bbbb");
         var proxy3 = new ProxyConfig("123.123.123.35", 12312, "aaaa", "bbbb");
-        
-        
+
+
         var weatherClient = clientFactory.CreateClient<AviationWeatherClient>(proxy);
         var data = await weatherClient.GetMetarAsync("KMCI", stoppingToken);
         Console.WriteLine($"Weather = {data}");
-        
+
         var defaultClient = clientFactory.CreateClient(proxy);
         var defRes = await defaultClient.GetAsync("https://api.ipify.org", stoppingToken);
         var defResIp = await defRes.Content.ReadAsStringAsync(stoppingToken);
         Console.WriteLine($"defResIp = {defResIp}");
-        
+
         var defaultClient2 = clientFactory.CreateClient(proxy2);
         var defRes2 = await defaultClient2.GetAsync("https://httpbin.org/ip", stoppingToken);
         var defResIp2 = await defRes2.Content.ReadAsStringAsync(stoppingToken);
         Console.WriteLine($"defResIp2 = {defResIp2}");
-        
+
         defRes = await defaultClient.GetAsync("https://api.ipify.org", stoppingToken);
         defResIp = await defRes.Content.ReadAsStringAsync(stoppingToken);
         Console.WriteLine($"defResIp = {defResIp}");
@@ -81,35 +81,5 @@ public class DefaultSample(ProxyHttpClientFactory clientFactory, MyDbContext dbC
         var myIp2 = await response.Content.ReadAsStringAsync(stoppingToken);
         Console.WriteLine($"myIp2 = {myIp2}");
         Console.WriteLine();
-    }
-
-    private List<ProxyConfig> GetProxies()
-    {
-        var proxies = new List<ProxyConfig>();
-
-        var lines = File.ReadAllLines(Path.Combine(AppContext.BaseDirectory, "proxy.txt")).ToList();
-
-        foreach (var raw in lines)
-        {
-            if (string.IsNullOrWhiteSpace(raw) || raw.TrimStart().StartsWith("//") || raw.TrimStart().StartsWith("#"))
-                continue;
-
-            var parts = raw.Split(':');
-            switch (parts.Length)
-            {
-                case 2:
-                {
-                    proxies.Add(new ProxyConfig(parts[0], int.Parse(parts[1])));
-                    break;
-                }
-                case 4:
-                {
-                    proxies.Add(new ProxyConfig(parts[0], int.Parse(parts[1]), parts[2], parts[3]));
-                    break;
-                }
-            }
-        }
-
-        return proxies;
     }
 }
