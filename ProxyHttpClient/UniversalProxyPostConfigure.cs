@@ -4,59 +4,65 @@ using Microsoft.Extensions.Options;
 
 namespace ProxyHttpClient;
 
-internal class UniversalProxyPostConfigure(IServiceProvider serviceProvider) : IPostConfigureOptions<HttpClientFactoryOptions>
+internal class UniversalProxyPostConfigure(IServiceProvider serviceProvider)
+    : IPostConfigureOptions<HttpClientFactoryOptions>
 {
-    // 拦截器的执行时机：UniversalProxyPostConfigure 里的委托是在 IHttpClientFactory 第一次创建这个特定 compositeKey 的底层 Handler 时执行的
-    
     public void PostConfigure(string? compositeKey, HttpClientFactoryOptions options)
     {
         // 匹配前缀
-        if (string.IsNullOrEmpty(compositeKey) || !compositeKey.StartsWith(Consts.ProxyCachePrefixKey)) 
+        if (string.IsNullOrEmpty(compositeKey) || !compositeKey.StartsWith(Consts.ProxyCachePrefixKey))
             return;
+
+        // 从复合 Key 中提取出原始的业务 ClientName
+        // 格式: ProxyHttpClient:1.1.1.1:80:anon:config:MyClientName
+        var lastIndex = compositeKey.LastIndexOf(":config:", StringComparison.Ordinal);
+        if (lastIndex == -1) return;
+        var businessClientName = compositeKey.Substring(lastIndex + 8);
         
-        if (ProxyConfigRegistry.HandlerMapping.TryGetValue(compositeKey, out var clientName))
+        // 获取业务客户端的原始配置
+        var monitor = serviceProvider.GetRequiredService<IOptionsMonitor<HttpClientFactoryOptions>>();
+        var businessOptions = monitor.Get(businessClientName);
+
+        // 将业务客户端的 Handler 配置（SSL, Resilience 等）克隆到复合 Key 客户端
+        foreach (var action in businessOptions.HttpMessageHandlerBuilderActions)
         {
-            // 从原生的配置中提取已经注册给 clientName 的中间件（包括 Polly）
-            // 这样复合 Key 就能自动继承你在 AddHttpClient 时注册的所有拦截器
-            var factoryOptions = serviceProvider.GetRequiredService<IOptionsMonitor<HttpClientFactoryOptions>>();
-            var businessOptions = factoryOptions.Get(clientName);
-            
-            foreach (var action in businessOptions.HttpMessageHandlerBuilderActions)
-            {
-                // 我们只继承非 PrimaryHandler 的部分 (即中间件链)
-                options.HttpMessageHandlerBuilderActions.Add(action);
-            }
+            options.HttpMessageHandlerBuilderActions.Add(action);
+        }
+
+        // 将业务客户端的 HttpClient 配置（BaseAddress, Headers 等）也克隆过去
+        foreach (var action in businessOptions.HttpClientActions)
+        {
+            options.HttpClientActions.Add(action);
         }
         
-        // 保持原有的 PrimaryHandler (代理/SSL) 配置逻辑
+        // 向配置链路中添加一个自定义 Action
         options.HttpMessageHandlerBuilderActions.Add(builder =>
         {
-            var handler = new SocketsHttpHandler
-            {
-                PooledConnectionLifetime = TimeSpan.FromMinutes(2),
-                ConnectTimeout = TimeSpan.FromSeconds(10),
-            };
-
-            // 获取对应的业务配置名称 (e.g. MyIpClient)
-            if (ProxyConfigRegistry.HandlerMapping.TryGetValue(compositeKey, out var businessName))
-            {
-                if (ProxyConfigRegistry.SocketsHttpHandlers.TryGetValue(businessName, out var action))
-                    action?.Invoke(handler);
-            }
-            // 如果没找到具体业务配置，尝试应用全局默认 Handler 配置
-            else if (ProxyConfigRegistry.SocketsHttpHandlers.TryGetValue(Consts.DefaultClientName, out var defaultAction))
-            {
-                defaultAction?.Invoke(handler);
-            }
-
-            // 应用代理配置
+            // 动态覆盖代理配置，保留用户设置的 SSL、Timeout、Cookie 等
             if (ProxyConfigRegistry.ProxyConfigs.TryGetValue(compositeKey, out var config))
             {
-                handler.Proxy = config.ToWebProxy();
-                handler.UseProxy = true;
+                var webProxy = config.ToWebProxy();
+                switch (builder.PrimaryHandler)
+                {
+                    case SocketsHttpHandler socketsHttpHandler:
+                        socketsHttpHandler.Proxy = webProxy;
+                        socketsHttpHandler.UseProxy = true;
+                        break;
+                    case HttpClientHandler httpClientHandler:
+                        httpClientHandler.Proxy = webProxy;
+                        httpClientHandler.UseProxy = true;
+                        break;
+                    default:
+                        // 兜底逻辑：如果用户注册了一个完全自定义的 Handler (非 SocketsHttpHandler)
+                        // 代理可能无法直接注入，这里可以抛出异常或记录日志
+                        throw new NotSupportedException(
+                            "The PrimaryHttpMessageHandler is not SocketsHttpHandler or HttpClientHandler.");
+                }
+                
+                // 选做：由于 Handler 已经被创建并绑定了 Proxy，可以考虑从 Dictionary 中移除以节省内存
+                // 但要注意：如果同一个 Key 被多次触发构建（极罕见），移除会导致后续失败
+                // ProxyConfigRegistry.ProxyConfigs.TryRemove(name, out _);
             }
-
-            builder.PrimaryHandler = handler;
         });
     }
 }

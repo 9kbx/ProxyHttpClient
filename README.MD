@@ -1,170 +1,229 @@
 # ProxyHttpClient 通用代理客户端
 
-ProxyHttpClient 是一个专为 .NET 8+ 设计的高性能、轻量级动态代理客户端工厂。它解决了在大批量账号/并发场景下，如何精准控制每个请求的代理 IP 且不造成套接字耗尽（Socket Exhaustion）的难题。
+ProxyHttpClient 是一个专为 .NET 10 设计的高性能、轻量级动态代理客户端工厂。它巧妙地解决了在大批量账号/高并发场景下，如何精准控制每个请求的代理
+IP 且不造成套接字耗尽（Socket Exhaustion）的难题。
 
 在请求时动态指定代理，适合处理**一个账号单独使用一个代理**请求的场景（也适合类似场景使用）。
 
 ## 核心特性
-- 物理隔离：基于连接池分区技术，确保不同代理配置之间的物理连接完全隔离，绝不串号。
 
-- 零预注册：无需预先配置成千上万个客户端，随用随传，自动动态生成。
+- 物理隔离：基于 Composite Key (复合键) 分区，确保不同代理配置之间的物理连接完全隔离，绝不串号。
+
+- 零预注册：无需预先在容器中配置成千上万个客户端，代理配置随用随传，系统自动动态装配。
+
+- 完美继承：支持原生 ConfigurePrimaryHttpMessageHandler 和 AddResilienceHandler。你的业务配置（SSL、超时、重试）会被自动“克隆”到每一个动态代理客户端上。
 
 - 自动生命周期管理：集成 IHttpClientFactory 缓存机制，空闲代理连接自动回收，节省内存。
 
 - 身份验证支持：完美支持 User:Pass 格式的私密代理。
 
-- Polly 友好：支持在类库层或业务层轻松挂载重试、熔断策略。
+- 高性能实例化：内部使用 ActivatorUtilities 预编译工厂，在高并发创建强类型客户端时保持极低开销。
 
 ## 快速上手
 
 1. 安装与注册
 
-在您的 Program.cs 中注册服务：
+在您的 Program.cs 中注册基础服务。即使使用动态代理，您依然可以像使用原生 HttpClient 一样定义全局策略：
 
 ```csharp
 using ProxyHttpClient;
 
-// 注册通用代理客户端模块
-// builder.Services.AddProxyHttpClient();
 builder.Services.AddProxyHttpClient(client =>
 {
-    // 客户端默认设置
     client.DefaultRequestHeaders.Add("User-Agent", "MyApp/1.0");
     client.Timeout = TimeSpan.FromSeconds(20);
+})
+// 原生支持：所有的代理客户端都会继承此 SSL 配置
+.ConfigurePrimaryHttpMessageHandler(() => new SocketsHttpHandler
+{
+    SslOptions = new System.Net.Security.SslClientAuthenticationOptions
+    {
+        RemoteCertificateValidationCallback = (_, _, _, _) => true
+    }
 });
 ```
 
 2. 定义代理配置
 
+支持 `http/https` 及 `socks5` 协议。
+
 ```csharp
-var proxy = new ProxyConfig(
-    Host: "138.186.139.137", 
-    Port: 36505, 
-    UserName: "your_user", 
-    Password: "your_password"
-);
+// 匿名代理
+var proxy = new ProxyConfig("123.123.123.123", 8080);
+
+// 用户认证代理
+var authProxy = new ProxyConfig("123.123.123.123", 8080, "user", "pass");
 ```
-> Host 默认 `http` 协议，也可指定协议，比如： `Host: "socks5://138.186.139.137"`
+
+> 默认使用 `http` 协议，如需其它协议可以这样设置 `socks5://138.186.139.137`
+>
+> 请注意，.NET 的 WebProxy 对 SOCKS 代理的支持取决于操作系统（Windows 10+ / Linux 较新内核支持良好）。如果遇到连接失败，请确认底层环境支持
+> SOCKS 协议头
 
 3. 在业务中使用
+
+注入 `ProxyHttpClientFactory`，它将成为你获取客户端的唯一入口。
 
 ```csharp
 public class MyService(ProxyHttpClientFactory clientFactory)
 {
     public async Task FetchData()
     {
-        // 指定代理
+        // 1. 获取一个绑定了指定代理的客户端
         var client = clientFactory.CreateClient(proxy);
+        // 2. 获取强类型客户端（自动注入 HttpClient）
+        var weatherClient = clientFactory.CreateClient<WeatherClient>(authProxy);
+        // 3. 获取无代理的直连客户端
+        var directClient = clientFactory.CreateClient();
+        
         var result = await client.GetStringAsync("https://api.ipify.org");
         Console.WriteLine($"当前出口 IP: {result}");
     }
 }
 ```
 
-其它使用示例
+## 场景示例
 
-- 默认客户端
+- 强类型客户端配置
 
-```csharp
-builder.Services.AddProxyHttpClient(client =>
-{
-    // 客户端默认设置
-    client.DefaultRequestHeaders.Add("User-Agent", "MyApp/1.0");
-    client.Timeout = TimeSpan.FromSeconds(20);
-});
+当您需要为特定 API 定义 BaseAddress 或特定的 Resilience 策略时：
 
-// 指定代理
-var client = proxyHttpClientFactory.CreateClient(proxy);
-// 或者不指定代理
-var client = proxyHttpClientFactory.CreateClient();
-```
-
-- 强类型客户端
+安装包 `Microsoft.Extensions.Http.Resilience`
 
 ```csharp
-public class MyIpClient(HttpClient httpClient)
-{
-    public Task<string> GetIpAsync(CancellationToken stoppingToken) =>
-        httpClient.GetStringAsync("ip", stoppingToken);
-}
-
 builder.Services.AddProxyHttpClient<MyIpClient>(client =>
 {
     client.BaseAddress = new Uri("https://httpbin.org/");
-});
-
-var client = proxyHttpClientFactory.CreateClient<MyIpClient>(proxy);
-var myIp = await client.GetIpAsync(stoppingToken);
+})
+.AddStandardResilienceHandler(); // 所有的动态代理请求都会自动应用此弹性策略
 ```
 
-- 命名客户端
+- 动态更换代理并重试 (Polly v8)
 
 ```csharp
-// 注册命名客户端的业务配置
-builder.Services.AddProxyHttpClient("IpClient", client =>
-{
-    client.BaseAddress = new Uri("https://httpbin.org/");
-});
+var pipeline = new ResiliencePipelineBuilder<string>().AddRetry(new RetryStrategyOptions<string> {
+    MaxRetryAttempts = 3,
+    ShouldHandle = new PredicateBuilder<string>().Handle<Exception>()
+}).Build();
 
-var client = proxyHttpClientFactory.CreateClient("IpClient", proxy);
-var myIp = await client.GetStringAsync("ip", stoppingToken);
+await pipeline.ExecuteAsync(async ct => {
+    var nextProxy = GetProxyFromPool(); 
+    // 每次重试都会通过新的 Composite Key 获取/创建一个全新的连接池
+    var client = clientFactory.CreateClient(nextProxy);
+    return await client.GetStringAsync("https://api.ipify.org", ct);
+});
 ```
 
-- 客户端默认配置
+- 合理配置过期时间： 如果您希望更积极地回收不再使用的代理连接，可以在注册时调整：
 
 ```csharp
-builder.Services.AddProxyHttpClient(client =>
+builder.Services.AddProxyHttpClient()
+    .SetHandlerLifetime(TimeSpan.FromSeconds(60)); // 缩短 Handler 在缓存中的驻留时间
+```
+
+- 其它 Polly 使用样例
+
+示例1：注册时设定重试策略
+
+```csharp
+builder.Services.AddProxyHttpClient<MyClient>()
+    // .AddStandardResilienceHandler(); // 应用默认弹性策略
+    .AddResilienceHandler("my-strategy", builder => // 自定义策略
     {
-        client.DefaultRequestHeaders.Add("User-Agent", "MyApp/1.0");
-        client.Timeout = TimeSpan.FromSeconds(20);
-    },
-    primaryHandler =>
-    {
-        primaryHandler.SslOptions = new SslClientAuthenticationOptions
-        {
-            RemoteCertificateValidationCallback = (_, _, _, _) => true // 忽略SSL证书错误
-        };
-        primaryHandler.Proxy = new WebProxy("socks5://127.0.0.1:12312",true); // 指定默认代理（可选）
-        primaryHandler.ConnectTimeout = TimeSpan.FromSeconds(10);
+        builder.AddRetry(new HttpRetryStrategyOptions
+            {
+                MaxRetryAttempts = 3,
+                BackoffType = DelayBackoffType.Exponential,
+                UseJitter = true,
+                Delay = TimeSpan.FromSeconds(1)
+            })
+            .AddTimeout(TimeSpan.FromSeconds(5));
     });
 ```
 
-## 进阶配置：配合 Polly 使用
-
-安装包
-
-- `Microsoft.Extensions.Http.Polly`
-- `Microsoft.Extensions.Http.Resilience`
-
-建议在业务层根据具体接口需求配置 Polly 策略：
+示例2：动态创建重试策略
 
 ```csharp
-var retryPolicy = HttpPolicyExtensions
-    .HandleTransientHttpError()
-    .WaitAndRetryAsync(3, i => TimeSpan.FromSeconds(2));
+// 定义一个支持“换 IP 重试”的策略
+var pipeline = new ResiliencePipelineBuilder<string>()
+    .AddRetry(new RetryStrategyOptions<string>
+    {
+        ShouldHandle = new PredicateBuilder<string>()
+            .HandleResult(string.IsNullOrEmpty) // 条件1
+            .Handle<Exception>(), // 条件2
+
+        MaxRetryAttempts = 3,
+
+        // 对应 WaitAndRetryAsync 的指数退避逻辑
+        BackoffType = DelayBackoffType.Exponential,
+        UseJitter = true, // 建议开启，防止高并发下的“惊群效应”
+        Delay = TimeSpan.FromSeconds(2),
+
+        OnRetry = outcome =>
+        {
+            var reason = outcome.Outcome.Exception?.Message ?? "返回结果为空";
+            Console.WriteLine($"[第 {outcome.AttemptNumber + 1} 次重试] 原因: {reason}");
+            return default;
+        }
+    })
+    .Build();
 
 var client = proxyFactory.CreateClient(config);
-
-await retryPolicy.ExecuteAsync(() => client.GetAsync("https://example.com"));
+await pipeline.ExecuteAsync(() => client.GetStringAsync("https://example.com"));
 ```
 
-## 核心原理
+## 性能基准测试 (Benchmark)
 
-本库利用了 .NET 的 IHttpClientFactory 命名客户端特性。当你调用 CreateClient(config) 时：
+为了保证并发处理能力，我们对 ProxyHttpClient 进行了严苛的基准测试。
 
-- 摘要计算：库会根据 ProxyConfig 生成唯一的 CacheKey。
+| 场景     | 平均耗时 (Mean) | 内存分配 (Allocated) |             性能说明 |
+|--------|------------:|-----------------:|-----------------:|
+| 原生创建   |    46.00 ns |            184 B |       NET 原生工厂基准 |                                                                                                                                                                                                         
+| 代理缓存命中 |   121.75 ns |            408 B |  相同 IP 再次请求，极速响应 |
+| 全新代理注入 |   120.72 ns |            448 B | 核心能力：海量新 IP 动态装配 |
 
-- 动态拦截：通过 IPostConfigureOptions 拦截 HttpClient 创建过程。
+以下是测试详情
 
-- 按需配置：在请求发起瞬间，动态注入 SocketsHttpHandler 并挂载 WebProxy。
+```text
+BenchmarkDotNet v0.15.8, macOS Sequoia 15.6.1 (24G90) [Darwin 24.6.0]
+Apple M4 Pro, 1 CPU, 14 logical and 14 physical cores                                                                                                                                                                                                                                                                       
+.NET SDK 10.0.100                                                                                                                                                                                                                                                                                                           
+  [Host]     : .NET 10.0.0 (10.0.0, 10.0.25.52411), Arm64 RyuJIT armv8.0-a                                                                                                                                                                                                                                                  
+  DefaultJob : .NET 10.0.0 (10.0.0, 10.0.25.52411), Arm64 RyuJIT armv8.0-a 
+```
 
-- 连接复用：相同的 CacheKey 会共享同一个底层物理连接池，直到该 Client 因空闲被回收。
+| Method            | Mean      | Error    | StdDev   | Ratio | RatioSD | Rank | Gen0   | Allocated | Alloc Ratio |
+|------------------ |----------:|---------:|---------:|------:|--------:|-----:|-------:|----------:|------------:|
+| NativeCreate      |  64.11 ns | 0.563 ns | 0.499 ns |  1.00 |    0.01 |    1 | 0.0381 |     320 B |        1.00 |                                                                                                                                                                                                         
+| ProxyCreateCached | 139.01 ns | 0.538 ns | 0.477 ns |  2.17 |    0.02 |    2 | 0.0648 |     544 B |        1.70 |
+| ProxyCreateNew    | 414.77 ns | 8.253 ns | 8.105 ns |  6.47 |    0.13 |    3 | 0.0777 |     651 B |        2.03 |
+
+运行Benchmark
+
+```shell
+cd ProxyHttpClient.Benchmarks
+dotnet run -c Release
+```
+
+## 核心原理：它是如何工作的？
+
+- **复合键 (Composite Key) 生成**： 当你调用 `CreateClient(proxy)` 时，库会根据 `ProxyIP + Port + UserName + ClientName`
+  实时计算一个唯一的字符串标识。
+
+- **配置克隆 (Configuration Cloning)**： 由于该标识对 `IHttpClientFactory` 是全新的，库会拦截创建过程，并利用
+  `IOptionsMonitor` 自动将您在 `Program.cs` 中为业务客户端（如 `Default`）定义的 `HttpClientActions` 和 `HandlerActions`
+  完整克隆到这个新生成的标识下。
+
+- **动态拦截 (Dynamic Injection)**： 在 Handler 链装配的最后一步，通过 `IPostConfigureOptions` 强行修改
+  `SocketsHttpHandler.Proxy`，实现代理注入。
+
+- **连接池分区 (Pooling)**： .NET 原生工厂会为每个唯一的标识维护独立的连接池。这意味着不同的代理 IP 拥有物理隔绝的连接，互不干扰。
 
 ## 注意事项
 
-- 句柄限制：在大批量并发场景下（如同时使用 5000+ 不同代理），请务必增加操作系统的最大文件句柄数（Linux: ulimit -n）。
-
-- 连接寿命：类库默认 PooledConnectionLifetime 为 2 分钟。如果需要更频繁地切换 IP（如代理池本身在变动），可以调整此参数。
+- 操作系统限制：在 Linux 下进行超大规模并发（5000+ 并发代理）时，请务必调高句柄限制：ulimit -n 65535。
+- SOCKS5 支持：.NET 的 WebProxy 在 Windows 10+ 和较新版本的 Linux 内核上支持良好。
+- 内存建议：虽然连接池会自动回收，但过多的命名客户端配置会占用一定内存。建议对于已失效且不再使用的静态代理 Key 进行定期观察。
 
 ## 开源协议
 
