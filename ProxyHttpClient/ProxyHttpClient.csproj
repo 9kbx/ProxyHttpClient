@@ -11,7 +11,7 @@
         <PackageTags>HttpClient, ProxyHttpClient, Http Proxy</PackageTags>
         <Title>Pandax.ProxyHttpClient</Title>
         <Description>轻量级HttpClient动态代理客户端，可在请求时切换代理</Description>
-        <Version>1.0.0</Version>
+        <Version>1.0.1</Version>
     </PropertyGroup>
 
     <ItemGroup>
