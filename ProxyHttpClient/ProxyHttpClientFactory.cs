@@ -3,6 +3,11 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace ProxyHttpClient;
 
+/// <summary>
+/// 
+/// </summary>
+/// <param name="httpClientFactory"></param>
+/// <param name="serviceProvider"></param>
 public class ProxyHttpClientFactory(IHttpClientFactory httpClientFactory, IServiceProvider serviceProvider)
 {
     private static readonly ConcurrentDictionary<Type, ObjectFactory> TypeFactoryCache = new();
@@ -12,42 +17,23 @@ public class ProxyHttpClientFactory(IHttpClientFactory httpClientFactory, IServi
     /// </summary>
     /// <param name="clientName"></param>
     /// <param name="proxy"></param>
-    /// <param name="handlerAction"></param>
     /// <returns></returns>
-    public HttpClient CreateClient(string clientName, ProxyConfig? proxy = null,
-        Action<SocketsHttpHandler>? handlerAction = null)
+    public HttpClient CreateClient(string clientName, ProxyConfig? proxy = null)
     {
         // 1. 生成复合 Key: "proxy_http_client:1.1.1.1:80:config:MyIpClient"
         // 这样既能触发拦截器(前缀匹配)，又能区分不同的业务 Handler 配置
         var compositeKey = proxy != null
             ? $"{proxy.GetCacheKey()}:config:{clientName}"
-            : $"{Consts.ProxyCachePrefixKey}:config:{clientName}";
+            : $"{Consts.ProxyCachePrefixKey}:default:config:{clientName}";
 
         if (proxy != null)
         {
             // 存储代理配置，Key 必须是复合 Key
             ProxyConfigRegistry.ProxyConfigs.TryAdd(compositeKey, proxy);
-
-            // 建立 复合Key -> 业务配置名 的映射，方便拦截器查找 SocketsHttpHandler 配置
-            ProxyConfigRegistry.HandlerMapping[compositeKey] = clientName;
-        }
-
-        if (handlerAction != null)
-        {
-            // 允许运行时临时覆盖或增加 Handler 配置
-            ProxyConfigRegistry.SocketsHttpHandlers[clientName] = handlerAction;
         }
 
         // 2. 触发 IHttpClientFactory。如果是第一次见这个复合 Key，会执行 PostConfigure
-        var client = httpClientFactory.CreateClient(compositeKey);
-
-        // 3. 应用 HttpClient 业务配置 (BaseAddress, Headers 等)
-        if (ProxyConfigRegistry.NamedClientConfigs.TryGetValue(clientName, out var configureHttpClient))
-        {
-            configureHttpClient(client);
-        }
-
-        return client;
+        return httpClientFactory.CreateClient(compositeKey);
     }
 
     /// <summary>
@@ -73,6 +59,6 @@ public class ProxyHttpClientFactory(IHttpClientFactory httpClientFactory, IServi
     /// </summary>
     /// <param name="proxy"></param>
     /// <returns></returns>
-    public HttpClient CreateClient(ProxyConfig? proxy = null) 
+    public HttpClient CreateClient(ProxyConfig? proxy = null)
         => CreateClient(Consts.DefaultClientName, proxy);
 }

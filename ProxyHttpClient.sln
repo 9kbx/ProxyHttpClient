@@ -11,7 +11,9 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "SolutionFolder", "SolutionF
 		global.json = global.json
 	EndProjectSection
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Test", "Test\Test.csproj", "{5BA7E811-2D84-44E5-9032-00D1CDF9384C}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ProxyHttpClient.UnitTest", "ProxyHttpClient.UnitTest\ProxyHttpClient.UnitTest.csproj", "{5BA7E811-2D84-44E5-9032-00D1CDF9384C}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ProxyHttpClient.Benchmarks", "ProxyHttpClient.Benchmarks\ProxyHttpClient.Benchmarks.csproj", "{3A34CEF5-E2BD-4E63-8B3B-F5A49DC0ACC3}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -31,5 +33,9 @@ Global
 		{5BA7E811-2D84-44E5-9032-00D1CDF9384C}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{5BA7E811-2D84-44E5-9032-00D1CDF9384C}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{5BA7E811-2D84-44E5-9032-00D1CDF9384C}.Release|Any CPU.Build.0 = Release|Any CPU
+		{3A34CEF5-E2BD-4E63-8B3B-F5A49DC0ACC3}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{3A34CEF5-E2BD-4E63-8B3B-F5A49DC0ACC3}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{3A34CEF5-E2BD-4E63-8B3B-F5A49DC0ACC3}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{3A34CEF5-E2BD-4E63-8B3B-F5A49DC0ACC3}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 EndGlobal
