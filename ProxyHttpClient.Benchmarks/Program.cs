@@ -2,13 +2,12 @@
 using BenchmarkDotNet.Running;
 using Microsoft.Extensions.DependencyInjection;
 using ProxyHttpClient;
-using System.Net.Http;
 
 // 运行测试
 BenchmarkRunner.Run<ProxyBenchmark>();
 
 [MemoryDiagnoser] // 开启内存分配诊断
-[RankColumn]      // 开启性能排名
+[RankColumn] // 开启性能排名
 public class ProxyBenchmark
 {
     private ServiceProvider _serviceProvider;
@@ -21,12 +20,17 @@ public class ProxyBenchmark
     public void Setup()
     {
         var services = new ServiceCollection();
+        services.AddTransient<MockProxyHttpMessageHandler>();
+        services.AddHttpClient();
         
         // 注册你的代理客户端
-        services.AddProxyHttpClient("TestClient", client => {
-            client.BaseAddress = new System.Uri("https://api.test.com");
-            client.DefaultRequestHeaders.Add("X-ProxyHttpClient.UnitTest", "Benchmark");
-        }).AddStandardResilienceHandler(); // 加上策略，测试克隆开销
+        services.AddProxyHttpClient("TestClient", client =>
+            {
+                client.BaseAddress = new System.Uri("https://api.test.com");
+                client.DefaultRequestHeaders.Add("X-ProxyHttpClient.UnitTest", "Benchmark");
+            })
+            .AddHttpMessageHandler<MockProxyHttpMessageHandler>() // 模拟代理请求结果
+            .AddStandardResilienceHandler(); // 加上策略，测试克隆开销
 
         _serviceProvider = services.BuildServiceProvider();
         _proxyFactory = _serviceProvider.GetRequiredService<ProxyHttpClientFactory>();
@@ -38,7 +42,7 @@ public class ProxyBenchmark
     [Benchmark(Baseline = true)]
     public HttpClient NativeCreate()
     {
-        return _nativeFactory.CreateClient("TestClient");
+        return _nativeFactory.CreateClient();
     }
 
     // 场景 2：代理客户端工厂（命中缓存）
@@ -60,7 +64,7 @@ public class ProxyBenchmark
         // 这样每次对应的 compositeKey 都是全新的
         var dynamicIp = $"10.0.{(_counter >> 8) & 0xFF}.{_counter & 0xFF}";
         var dynamicConfig = new ProxyConfig(dynamicIp, 8888);
-        
+
         return _proxyFactory.CreateClient("TestClient", dynamicConfig);
     }
 }

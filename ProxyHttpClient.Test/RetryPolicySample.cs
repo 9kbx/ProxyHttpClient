@@ -25,7 +25,6 @@ public class RetryPolicySample(ProxyHttpClientFactory clientFactory, IServicePro
     public async Task RunAsync()
     {
         await PollyTestAsync();
-        // await PollyTest2Async(_proxyConfigs.First());
     }
 
     private async Task PollyTestAsync(CancellationToken stoppingToken = default)

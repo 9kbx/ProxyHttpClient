@@ -172,15 +172,29 @@ var client = proxyFactory.CreateClient(config);
 await pipeline.ExecuteAsync(() => client.GetStringAsync("https://example.com"));
 ```
 
+- 在请求上下文元数据提取代理配置
+
+```csharp
+public class MockProxyHttpMessageHandler : DelegatingHandler
+{
+    protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken ct)
+    {
+        if (request.Options.TryGetValue(HttpRequestOptionsExtensions.CurrentProxy, out var proxyConfig))
+            Console.WriteLine($"webproxy: {proxyConfig.Host}");
+        return await base.SendAsync(request, ct);
+    }
+}
+```
+
 ## 性能基准测试 (Benchmark)
 
 为了保证并发处理能力，我们对 ProxyHttpClient 进行了严苛的基准测试。
 
 | 场景     | 平均耗时 (Mean) | 内存分配 (Allocated) | 性能说明             |
 |--------|------------:|-----------------:|------------------|
-| 原生创建   |    64.11 ns |            320 B | NET 原生工厂基准       |                                                                                                                                                                                                         
-| 代理缓存命中 |   139.01 ns |            544 B | 相同 IP 再次请求，极速响应  |
-| 全新代理注入 |   414.77 ns |            651 B | 核心能力：海量新 IP 动态装配 |
+| 原生创建   |    15.96 ns |            128 B | NET 原生工厂基准       |                                                                                                                                                                                                         
+| 代理缓存命中 |   137.27 ns |            544 B | 相同 IP 再次请求，极速响应  |
+| 全新代理注入 |   421.52 ns |            651 B | 核心能力：海量新 IP 动态装配 |
 
 以下是测试详情
 
@@ -192,11 +206,11 @@ Apple M4 Pro, 1 CPU, 14 logical and 14 physical cores
   DefaultJob : .NET 10.0.0 (10.0.0, 10.0.25.52411), Arm64 RyuJIT armv8.0-a 
 ```
 
-| Method            |      Mean |    Error |   StdDev | Ratio | RatioSD | Rank |   Gen0 | Allocated | Alloc Ratio |
-|-------------------|----------:|---------:|---------:|------:|--------:|-----:|-------:|----------:|------------:|
-| NativeCreate      |  64.11 ns | 0.563 ns | 0.499 ns |  1.00 |    0.01 |    1 | 0.0381 |     320 B |        1.00 |                                                                                                                                                                                                         
-| ProxyCreateCached | 139.01 ns | 0.538 ns | 0.477 ns |  2.17 |    0.02 |    2 | 0.0648 |     544 B |        1.70 |
-| ProxyCreateNew    | 414.77 ns | 8.253 ns | 8.105 ns |  6.47 |    0.13 |    3 | 0.0777 |     651 B |        2.03 |
+| Method            | Mean      | Error    | StdDev    | Ratio | RatioSD | Rank | Gen0   | Allocated | Alloc Ratio |
+|------------------ |----------:|---------:|----------:|------:|--------:|-----:|-------:|----------:|------------:|
+| NativeCreate      |  15.96 ns | 0.103 ns |  0.086 ns |  1.00 |    0.01 |    1 | 0.0153 |     128 B |        1.00 |                                                                                                                                                                                                        
+| ProxyCreateCached | 137.27 ns | 0.691 ns |  0.612 ns |  8.60 |    0.06 |    2 | 0.0648 |     544 B |        4.25 |
+| ProxyCreateNew    | 421.52 ns | 8.502 ns | 11.055 ns | 26.68 |    0.69 |    3 | 0.0777 |     651 B |        5.09 |
 
 运行Benchmark
 

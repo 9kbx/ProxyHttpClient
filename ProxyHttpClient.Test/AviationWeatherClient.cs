@@ -1,5 +1,3 @@
-using Microsoft.Extensions.DependencyInjection;
-
 namespace ProxyHttpClient.Test;
 
 public class AviationWeatherClient

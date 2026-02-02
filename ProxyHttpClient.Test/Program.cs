@@ -17,6 +17,7 @@ builder.Services.AddProxyHttpClient(client =>
         client.DefaultRequestHeaders.Add("User-Agent", "MyApp/1.0");
         client.Timeout = TimeSpan.FromSeconds(10);
     })
+    .AddHttpMessageHandler<MockProxyHttpMessageHandler>()
     .ConfigurePrimaryHttpMessageHandler((s) =>
     {
         return new SocketsHttpHandler
@@ -49,31 +50,27 @@ builder.Services.AddProxyHttpClient<AviationWeatherClient>(client =>
     client.BaseAddress = new Uri("https://aviationweather.gov/");
     client.DefaultRequestHeaders.Add("User-Agent", "MyApp/1.0");
     client.Timeout = TimeSpan.FromSeconds(20);
-}).ConfigurePrimaryHttpMessageHandler((s) =>
-{
-    return new SocketsHttpHandler
-    {
-        SslOptions = new SslClientAuthenticationOptions
-        {
-            RemoteCertificateValidationCallback = (_, _, _, _) => true
-        },
-        AutomaticDecompression = DecompressionMethods.All,
-        PooledConnectionLifetime = TimeSpan.FromMinutes(5),
-        ConnectTimeout = TimeSpan.FromSeconds(10)
-    };
-});
-builder.Services.AddProxyHttpClient<MyIpClient>(client => client.BaseAddress = new Uri("https://httpbin.org/"));
+}).AddHttpMessageHandler<MockProxyHttpMessageHandler>();
+builder.Services.AddProxyHttpClient<MyIpClient>(client => client.BaseAddress = new Uri("https://httpbin.org/"))
+    .AddHttpMessageHandler<MockProxyHttpMessageHandler>();
 // 注册命名客户端的业务配置
-builder.Services.AddProxyHttpClient("IpClient", client => client.BaseAddress = new Uri("https://httpbin.org/"));
+builder.Services.AddProxyHttpClient("IpClient", client => client.BaseAddress = new Uri("https://httpbin.org/"))
+    .AddHttpMessageHandler<MockProxyHttpMessageHandler>();
+builder.Services.AddProxyHttpClient("MockClient", client => client.BaseAddress = new Uri("https://api.mock-test.com/"))
+    .AddHttpMessageHandler<MockProxyHttpMessageHandler>();
+
+builder.Services.AddTransient<MockProxyHttpMessageHandler>();
 
 builder.Services.AddScoped<MyDbContext>(); // 模拟db上下文
 builder.Services.AddSingleton<DefaultSample>();
 builder.Services.AddSingleton<RetryPolicySample>();
 builder.Services.AddSingleton<SpecificProxySample>();
+builder.Services.AddSingleton<MockHandlerSample>();
 
 var app = builder.Build();
 
 // var test = app.Services.GetRequiredService<DefaultSample>();
 // var test = app.Services.GetRequiredService<RetryPolicySample>();
-var test = app.Services.GetRequiredService<SpecificProxySample>();
+// var test = app.Services.GetRequiredService<SpecificProxySample>();
+var test = app.Services.GetRequiredService<MockHandlerSample>();
 await test.RunAsync();
