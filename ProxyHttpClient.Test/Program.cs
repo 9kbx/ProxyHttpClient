@@ -1,7 +1,8 @@
-﻿using System.Net;
-using System.Net.Security;
+﻿using System.Net.Security;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Http.Resilience;
+using Polly;
 using ProxyHttpClient;
 using ProxyHttpClient.Test;
 
@@ -10,34 +11,59 @@ var builder = Host.CreateApplicationBuilder(args);
 // 注册通用代理模块
 // builder.Services.AddProxyHttpClient();
 builder.Services.AddProxyHttpClient(client =>
-    {
-        // 设置默认客户端
-        client.DefaultRequestHeaders.Add("User-Agent", "MyApp/1.0");
-        client.Timeout = TimeSpan.FromSeconds(20);
-    },
-    primaryHandler =>
-    {
-        Console.WriteLine($"================ {DateTime.Now} ================== Configure Default SocketHttpHandler");
-        primaryHandler.SslOptions = new SslClientAuthenticationOptions
         {
-            RemoteCertificateValidationCallback = (_, _, _, _) => true
-        };
-        primaryHandler.ConnectTimeout = TimeSpan.FromSeconds(10);
+            // 设置默认客户端
+            client.DefaultRequestHeaders.Add("User-Agent", "MyApp/1.0");
+            client.Timeout = TimeSpan.FromSeconds(10);
+        },
+        primaryHandler =>
+        {
+            primaryHandler.SslOptions = new SslClientAuthenticationOptions
+            {
+                RemoteCertificateValidationCallback = (_, _, _, _) => true
+            };
+            primaryHandler.ConnectTimeout = TimeSpan.FromSeconds(10);
+        })
+    // 重试策略
+    .AddResilienceHandler("my-strategy", builder =>
+    {
+        builder.AddRetry(new HttpRetryStrategyOptions
+            {
+                MaxRetryAttempts = 3,
+                BackoffType = DelayBackoffType.Exponential,
+                UseJitter = true,
+                Delay = TimeSpan.FromSeconds(1)
+            })
+            .AddTimeout(TimeSpan.FromSeconds(5));
     });
+
 // 注册强类型客户端
 builder.Services.AddProxyHttpClient<AviationWeatherClient>(client =>
-{
-    client.BaseAddress = new Uri("https://aviationweather.gov/");
-    client.DefaultRequestHeaders.Add("User-Agent", "MyApp/1.0");
-    client.Timeout = TimeSpan.FromSeconds(20);
-});
-builder.Services.AddProxyHttpClient<MyIpClient>(client => { client.BaseAddress = new Uri("https://httpbin.org/"); });
+        {
+            client.BaseAddress = new Uri("https://aviationweather.gov/");
+            client.DefaultRequestHeaders.Add("User-Agent", "MyApp/1.0");
+            client.Timeout = TimeSpan.FromSeconds(20);
+        },
+        primaryHandler =>
+        {
+            Console.WriteLine(
+                "================= Configure PrimaryHttpMessageHandler22222222 ==============");
+        })
+    .ConfigurePrimaryHttpMessageHandler((b, s) =>
+    {
+        Console.WriteLine(
+            "================= Configure PrimaryHttpMessageHandler111111111 ==============");
+    });
+builder.Services.AddProxyHttpClient<MyIpClient>(client => client.BaseAddress = new Uri("https://httpbin.org/"));
 // 注册命名客户端的业务配置
-builder.Services.AddProxyHttpClient("IpClient", client => { client.BaseAddress = new Uri("https://httpbin.org/"); });
+builder.Services.AddProxyHttpClient("IpClient", client => client.BaseAddress = new Uri("https://httpbin.org/"));
 
 builder.Services.AddScoped<MyDbContext>(); // 模拟db上下文
-builder.Services.AddSingleton<MyApp>();
+builder.Services.AddSingleton<DefaultSample>();
+builder.Services.AddSingleton<RetryPolicySample>();
 
 var app = builder.Build();
-var test = app.Services.GetRequiredService<MyApp>();
+
+var test = app.Services.GetRequiredService<DefaultSample>();
+// var test = app.Services.GetRequiredService<RetryPolicySample>();
 await test.RunAsync();
