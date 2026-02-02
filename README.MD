@@ -176,10 +176,10 @@ await pipeline.ExecuteAsync(() => client.GetStringAsync("https://example.com"));
 
 为了保证并发处理能力，我们对 ProxyHttpClient 进行了严苛的基准测试。
 
-| 场景     | 平均耗时 (Mean) | 内存分配 (Allocated) |             性能说明 |
-|--------|------------:|-----------------:|-----------------:|
-| 原生创建   |    46.00 ns |            184 B |       NET 原生工厂基准 |                                                                                                                                                                                                         
-| 代理缓存命中 |   121.75 ns |            408 B |  相同 IP 再次请求，极速响应 |
+| 场景     | 平均耗时 (Mean) | 内存分配 (Allocated) | 性能说明             |
+|--------|------------:|-----------------:|------------------|
+| 原生创建   |    46.00 ns |            184 B | NET 原生工厂基准       |                                                                                                                                                                                                         
+| 代理缓存命中 |   121.75 ns |            408 B | 相同 IP 再次请求，极速响应  |
 | 全新代理注入 |   120.72 ns |            448 B | 核心能力：海量新 IP 动态装配 |
 
 以下是测试详情
@@ -192,8 +192,8 @@ Apple M4 Pro, 1 CPU, 14 logical and 14 physical cores
   DefaultJob : .NET 10.0.0 (10.0.0, 10.0.25.52411), Arm64 RyuJIT armv8.0-a 
 ```
 
-| Method            | Mean      | Error    | StdDev   | Ratio | RatioSD | Rank | Gen0   | Allocated | Alloc Ratio |
-|------------------ |----------:|---------:|---------:|------:|--------:|-----:|-------:|----------:|------------:|
+| Method            |      Mean |    Error |   StdDev | Ratio | RatioSD | Rank |   Gen0 | Allocated | Alloc Ratio |
+|-------------------|----------:|---------:|---------:|------:|--------:|-----:|-------:|----------:|------------:|
 | NativeCreate      |  64.11 ns | 0.563 ns | 0.499 ns |  1.00 |    0.01 |    1 | 0.0381 |     320 B |        1.00 |                                                                                                                                                                                                         
 | ProxyCreateCached | 139.01 ns | 0.538 ns | 0.477 ns |  2.17 |    0.02 |    2 | 0.0648 |     544 B |        1.70 |
 | ProxyCreateNew    | 414.77 ns | 8.253 ns | 8.105 ns |  6.47 |    0.13 |    3 | 0.0777 |     651 B |        2.03 |
