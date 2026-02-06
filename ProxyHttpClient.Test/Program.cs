@@ -58,6 +58,7 @@ builder.Services.AddProxyHttpClient("IpClient", client => client.BaseAddress = n
     .AddHttpMessageHandler<MockProxyHttpMessageHandler>();
 builder.Services.AddProxyHttpClient("MockClient", client => client.BaseAddress = new Uri("https://api.mock-test.com/"))
     .AddHttpMessageHandler<MockProxyHttpMessageHandler>();
+builder.Services.AddProxyHttpClient("ProxyChecker", client => client.BaseAddress = new Uri("https://api.ipify.org/"));
 
 builder.Services.AddTransient<MockProxyHttpMessageHandler>();
 
@@ -66,11 +67,13 @@ builder.Services.AddSingleton<DefaultSample>();
 builder.Services.AddSingleton<RetryPolicySample>();
 builder.Services.AddSingleton<SpecificProxySample>();
 builder.Services.AddSingleton<MockHandlerSample>();
+builder.Services.AddSingleton<ProxyChecker>();
 
 var app = builder.Build();
 
 // var test = app.Services.GetRequiredService<DefaultSample>();
 // var test = app.Services.GetRequiredService<RetryPolicySample>();
 // var test = app.Services.GetRequiredService<SpecificProxySample>();
-var test = app.Services.GetRequiredService<MockHandlerSample>();
+// var test = app.Services.GetRequiredService<MockHandlerSample>();
+var test = app.Services.GetRequiredService<ProxyChecker>();
 await test.RunAsync();
